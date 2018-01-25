@@ -1,0 +1,3 @@
+src/core/config.js  filter=config_hide_1
+src/core/config.js  filter=config_hide_2
+src/core/constants.js filter=constants_hide
