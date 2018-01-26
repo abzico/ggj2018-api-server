@@ -82,6 +82,72 @@ module.exports = function(app) {
 				res.send(util.createResponseMessage(constants.statusCode.invalidAccessToken, 'Invalid access token'));
 				return;
 			});
+  });
+  
+  // ----------------------------
+	// --- API - POST /updateUserInfo --
+	// It will automatically extract open id to use in finding an exact user in user table.
+	// Parameters doesn't necessary need to be sorted.
+	// 
+	// User should be gaining access to the app thus openId is there in user table already. Use this API to update
+	// user's info later. User's info is not critical to have.
+	// 
+	// header param - constants.headerKey.userToken - string
+	// param - city (string) - [optional] city
+	// param - country (string) - [optional] country
+	// param - gender (number) - [optional] gender of user (according to WeChat)
+	// param - language (string) - [optional] language
+	// param - nickName (string) - [optional] nick name
+	// param - province (string) - [optional] province
+	app.post(config.baseURL + '/updateUserInfo', function(req, res) {
+		// all of body data input are optional
+
+		// get token
+		var token = req.get(constants.headerKey.userToken);
+		console.log('token: ' + token);
+		// check if token is valid
+		mpauthx.isTokenValid(token)
+			.then(function() {
+				// get user's openId from userToken
+				var openId = mpauthx.extractOpenId(token);
+				// get time stamp of creation
+				var timeStamp = getTimestamp();
+
+				// run through all input values to create sql statement to update
+				var columns = ['city', 'country', 'gender', 'language', 'nickName', 'province'];
+				var values = [req.body.city, req.body.country, req.body.gender, req.body.language, req.body.nickName, req.body.province];
+				var sql = 'update user set ';
+				for (var i=0; i<values.length; i++) {
+					var val = values[i];
+					if (val != null && val != '') {
+						// number data type
+						if (i == 2) {
+							sql += `${columns[i]}=${values[i]},`;
+						}
+						// string type
+						else {
+							sql += `${columns[i]}='${values[i]}',`;
+						}
+					}
+				}
+				// remove last comma
+				sql = sql.substring(0, sql.length-1) + ` where openId='${openId}'`;
+
+				// all is ok
+				db.run(sql, function(e) {
+					if (e) {
+						res.send(util.createResponseMessage(constants.statusCode.databaseRelatedError, `Error: ${e.message}`));
+					}
+					else {
+						res.send(util.createResponseMessage(constants.statusCode.success, 'OK'));
+					}
+				});
+			})
+			.catch(function() {
+				console.log('POST /updateUserInfo invalid token');
+				res.send(util.createResponseMessage(constants.statusCode.invalidAccessToken, 'Invalid access token'));
+				return;
+			});
 	});
 
 	return {
